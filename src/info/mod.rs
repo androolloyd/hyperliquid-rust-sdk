@@ -1,7 +1,7 @@
 mod types;
 mod info_client;
 mod response_structs;
-mod sub_structs;
+pub mod sub_structs;
 
 pub use response_structs::{
     UserStateResponse, UserTokenBalanceResponse, UserFeesResponse,
@@ -10,6 +10,9 @@ pub use response_structs::{
     UserFundingResponse, ReferralResponse, L2SnapshotResponse, RecentTradesResponse,
     OpenOrdersResponse, UserFillsResponse,
 };
-pub use sub_structs::*;
+pub use sub_structs::{
+    UserTokenBalance, ReferrerState, ReferrerData, Position, UserState, Level,
+    OrderInfo, Delta, AssetPosition, BasicOrderInfo,
+};
 pub use info_client::InfoClient;
-pub use types::*;
+pub use types::UserTokenBalance as TypeUserTokenBalance;

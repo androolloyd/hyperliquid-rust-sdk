@@ -1,4 +1,3 @@
-use alloy_primitives::Address;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use crate::info::sub_structs::UserState;
@@ -82,6 +81,32 @@ pub struct Trade {
     pub sz: String,
     pub time: u64,
     pub hash: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StakingInfo {
+    pub total_staked: String,
+    pub total_rewards: String,
+    pub apr: String,
+    pub min_stake: String,
+    pub max_stake: String,
+    pub cooldown_period: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserStakingInfo {
+    pub staked_amount: String,
+    pub pending_rewards: String,
+    pub cooldown_end: Option<u64>,
+    pub unstake_amount: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StakingRewardsInfo {
+    pub total_distributed: String,
+    pub current_epoch: u64,
+    pub rewards_per_epoch: String,
+    pub epoch_duration: u64,
 }
 
 // Response types

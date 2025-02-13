@@ -7,7 +7,7 @@ const ADDRESS: &str = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8";
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
+    let info_client = InfoClient::new(BaseUrl::Testnet.get_url());
     let user = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8".parse::<Address>().unwrap();
 
     let user_state = info_client.user_state(user).await.unwrap();
@@ -19,7 +19,7 @@ async fn main() {
     let open_orders = info_client.open_orders(user).await.unwrap();
     info!("Open orders: {open_orders:?}");
 
-    let meta = info_client.meta().await.unwrap();
+    let meta = info_client.get_meta().await.unwrap();
     info!("Meta: {meta:?}");
 
     let all_mids = info_client.all_mids().await.unwrap();
@@ -111,7 +111,7 @@ async fn recent_trades(info_client: &InfoClient) {
 }
 
 async fn meta_example(info_client: &InfoClient) {
-    info!("Metadata: {:?}", info_client.meta().await.unwrap());
+    info!("Metadata: {:?}", info_client.get_meta().await.unwrap());
 }
 
 async fn all_mids_example(info_client: &InfoClient) {
@@ -173,7 +173,7 @@ async fn user_funding_example(info_client: &InfoClient) {
 }
 
 async fn spot_meta_example(info_client: &InfoClient) {
-    info!("SpotMeta: {:?}", info_client.spot_meta().await.unwrap());
+    info!("SpotMeta: {:?}", info_client.get_spot_meta().await.unwrap());
 }
 
 async fn spot_meta_and_asset_contexts_example(info_client: &InfoClient) {

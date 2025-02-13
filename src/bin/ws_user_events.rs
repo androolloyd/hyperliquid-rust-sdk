@@ -3,7 +3,7 @@ use log::info;
 use std::str::FromStr;
 
 use alloy_primitives::Address;
-use hyperliquid_rust_sdk::{BaseUrl, InfoClient, Message, Subscription};
+use hyperliquid_rust_sdk::{info::InfoClient, helpers::BaseUrl, Message, Subscription};
 use tokio::{
     spawn,
     sync::mpsc::unbounded_channel,
@@ -13,7 +13,7 @@ use tokio::{
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    let mut info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
+    let mut info_client = InfoClient::new_with_ws(BaseUrl::Testnet.get_url()).await.unwrap();
     let user = Address::from_str("0xc64cc00b46101bd40aa1c3121195e85c0b0918d8").unwrap();
 
     let (sender, mut receiver) = unbounded_channel();

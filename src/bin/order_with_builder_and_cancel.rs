@@ -46,8 +46,8 @@ async fn main() {
     let oid = if let Some(data) = response.data {
         if !data.statuses.is_empty() {
             match data.statuses[0].clone() {
-                ExchangeDataStatus::Filled(order) => order.oid,
-                ExchangeDataStatus::Resting(order) => order.oid,
+                ExchangeDataStatus::Filled(order) => order.order.oid,
+                ExchangeDataStatus::Resting(order) => order.order.oid,
                 ExchangeDataStatus::Error(e) => panic!("error with order: {e}"),
                 _ => unreachable!(),
             }

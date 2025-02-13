@@ -38,9 +38,9 @@ async fn main() {
     };
     let status = response.data.unwrap().statuses[0].clone();
     let oid = match status {
-        ExchangeDataStatus::Filled(order) => order.oid,
-        ExchangeDataStatus::Resting(order) => order.oid,
-        _ => panic!("Error: {status:?}"),
+        ExchangeDataStatus::Filled(order) => order.order.oid,
+        ExchangeDataStatus::Resting(order) => order.order.oid,
+        _ => panic!("Unexpected order status"),
     };
 
     // So you can see the order before it's cancelled

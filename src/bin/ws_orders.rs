@@ -12,7 +12,7 @@ async fn main() {
     env_logger::init();
 
     let address = "0x1234567890123456789012345678901234567890".parse::<Address>().unwrap();
-    let mut info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
+    let mut info_client = InfoClient::new_with_ws(BaseUrl::Testnet.get_url()).await.unwrap();
 
     let (sender, mut receiver) = unbounded_channel();
     let subscription_id = info_client

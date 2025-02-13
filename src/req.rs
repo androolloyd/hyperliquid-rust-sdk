@@ -10,7 +10,7 @@ struct ErrorData {
 }
 
 #[derive(Debug)]
-pub struct HttpClient {
+pub(crate) struct HttpClient {
     pub client: Client,
     pub base_url: String,
 }
@@ -40,7 +40,14 @@ async fn parse_response(response: Response) -> Result<String> {
 }
 
 impl HttpClient {
-    pub async fn post(&self, url_path: &'static str, data: String) -> Result<String> {
+    pub(crate) fn new(base_url: String) -> Self {
+        Self {
+            client: Client::new(),
+            base_url,
+        }
+    }
+
+    pub(crate) async fn post(&self, url_path: &'static str, data: String) -> Result<String> {
         let full_url = format!("{}{url_path}", self.base_url);
         let request = self
             .client
@@ -57,7 +64,7 @@ impl HttpClient {
         parse_response(result).await
     }
 
-    pub fn is_mainnet(&self) -> bool {
+    pub(crate) fn is_mainnet(&self) -> bool {
         self.base_url == BaseUrl::Mainnet.get_url()
     }
 }

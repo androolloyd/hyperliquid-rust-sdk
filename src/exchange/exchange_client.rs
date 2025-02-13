@@ -1,25 +1,27 @@
 use alloy_primitives::{Address, U256};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::{
-    exchange::actions::{
-        types::{UsdSend, ApproveAgent, Withdraw3, SpotSend, ClassTransfer},
-        UpdateLeverage, BulkOrder, BulkCancel, BulkModify, BulkCancelCloid, UpdateIsolatedMargin
-    },
-    exchange::{
-        cancel::{CancelRequest, CancelRequestCloid},
-        modify::ModifyRequest,
-        order::{OrderRequest, Order, ClientOrder, Limit, Trigger},
-    },
-    ClientCancelRequest,
-    ClientCancelRequestCloid,
-    ClientOrderRequest,
-    BuilderInfo,
-    ExchangeResponseStatus,
-    VaultTransfer,
+    constants::Chain,
     errors::{HyperliquidError, Result},
+    exchange::{
+        actions::{
+            ApproveAgent, ApproveBuilderFee, BulkCancel, BulkCancelCloid, BulkModify, BulkOrder,
+            ClassTransfer, ClaimRewards, CompleteUnstake, SetReferrer, SpotSend, Stake,
+            StartUnstake, UpdateIsolatedMargin, UpdateLeverage, UsdSend, VaultTransfer, Withdraw3,
+        },
+        cancel::{CancelRequest, CancelRequestCloid, ClientCancelRequest, ClientCancelRequestCloid},
+        modify::ModifyRequest,
+        order::{ClientOrder, Limit, Order, OrderRequest, Trigger, ClientOrderRequest},
+        BuilderInfo,
+    },
+    info::sub_structs::OrderInfo,
+    helpers::*,
+    signature::{
+        agent::Agent,
+        create_signature::sign_l1_action,
+    },
 };
 
 impl From<ClientOrderRequest> for OrderRequest {
@@ -63,14 +65,53 @@ impl From<ClientCancelRequestCloid> for CancelRequestCloid {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum Actions {
-    UsdSend(UsdSend),
+pub(crate) enum Actions {
+    ApproveBuilderFee(ApproveBuilderFee),
     ApproveAgent(ApproveAgent),
-    Withdraw3(Withdraw3),
+    UsdSend(UsdSend),
     SpotSend(SpotSend),
     ClassTransfer(ClassTransfer),
+    SetReferrer(SetReferrer),
+    UpdateLeverage(UpdateLeverage),
+    UpdateIsolatedMargin(UpdateIsolatedMargin),
+    BulkOrder(BulkOrder),
+    BulkCancel(BulkCancel),
+    BulkModify(BulkModify),
+    BulkCancelCloid(BulkCancelCloid),
+    Withdraw3(Withdraw3),
+    Stake(Stake),
+    StartUnstake(StartUnstake),
+    CompleteUnstake(CompleteUnstake),
+    ClaimRewards(ClaimRewards),
+    VaultTransfer(VaultTransfer),
+
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+pub enum ExchangeResponseStatus {
+    Ok(ExchangeResponse),
+    Err(String),
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExchangeResponse {
+    pub status: String,
+    pub data: Option<ExchangeData>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExchangeData {
+    pub statuses: Vec<ExchangeDataStatus>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(tag = "type")]
+pub enum ExchangeDataStatus {
+    Success,
+    Error(String),
+    Filled(OrderInfo),
+    Resting(OrderInfo),
 }
 
 #[derive(Debug)]
@@ -344,5 +385,172 @@ impl ExchangeClient {
             .await
             .map_err(HyperliquidError::from)?;
         Ok(())
+    }
+
+    pub async fn stake(&self, amount: U256, chain: Chain) -> Result<()> {
+        let timestamp = self.get_timestamp();
+        let req = Stake {
+            signatureChainId: U256::from(chain.chain_id()),
+            hyperliquidChain: chain.as_str().to_string(),
+            amount,
+            time: timestamp,
+        };
+        let req_json = serde_json::to_string(&req).map_err(|e| HyperliquidError::SerializationError(e.to_string()))?;
+        self.http_client
+            .post(format!("{}/exchange/stake", self.base_url))
+            .body(req_json)
+            .send()
+            .await
+            .map_err(HyperliquidError::from)?;
+        Ok(())
+    }
+
+    pub async fn start_unstake(&self, amount: U256, chain: Chain) -> Result<()> {
+        let timestamp = self.get_timestamp();
+        let req = StartUnstake {
+            signatureChainId: U256::from(chain.chain_id()),
+            hyperliquidChain: chain.as_str().to_string(),
+            amount,
+            time: timestamp,
+        };
+        let req_json = serde_json::to_string(&req).map_err(|e| HyperliquidError::SerializationError(e.to_string()))?;
+        self.http_client
+            .post(format!("{}/exchange/startUnstake", self.base_url))
+            .body(req_json)
+            .send()
+            .await
+            .map_err(HyperliquidError::from)?;
+        Ok(())
+    }
+
+    pub async fn complete_unstake(&self, chain: Chain) -> Result<()> {
+        let timestamp = self.get_timestamp();
+        let req = CompleteUnstake {
+            signatureChainId: U256::from(chain.chain_id()),
+            hyperliquidChain: chain.as_str().to_string(),
+            time: timestamp,
+        };
+        let req_json = serde_json::to_string(&req).map_err(|e| HyperliquidError::SerializationError(e.to_string()))?;
+        self.http_client
+            .post(format!("{}/exchange/completeUnstake", self.base_url))
+            .body(req_json)
+            .send()
+            .await
+            .map_err(HyperliquidError::from)?;
+        Ok(())
+    }
+
+    pub async fn claim_rewards(&self, chain: Chain) -> Result<()> {
+        let timestamp = self.get_timestamp();
+        let req = ClaimRewards {
+            signatureChainId: U256::from(chain.chain_id()),
+            hyperliquidChain: chain.as_str().to_string(),
+            time: timestamp,
+        };
+        let req_json = serde_json::to_string(&req).map_err(|e| HyperliquidError::SerializationError(e.to_string()))?;
+        self.http_client
+            .post(format!("{}/exchange/claimRewards", self.base_url))
+            .body(req_json)
+            .send()
+            .await
+            .map_err(HyperliquidError::from)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use mockito::{Server, ServerGuard};
+
+    fn setup_mock_server() -> (ExchangeClient, ServerGuard) {
+        let mut server = Server::new();
+        let client = ExchangeClient::new(server.url());
+        (client, server)
+    }
+
+    #[tokio::test]
+    async fn test_stake() {
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/exchange/stake")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("{\"status\":\"success\"}")
+            .create();
+        
+        let result = client.stake(U256::from(1000000000000000000u64), Chain::Testnet).await;
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_start_unstake() {
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/exchange/startUnstake")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("{\"status\":\"success\"}")
+            .create();
+        
+        let result = client.start_unstake(U256::from(1000000000000000000u64), Chain::Testnet).await;
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_complete_unstake() {
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/exchange/completeUnstake")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("{\"status\":\"success\"}")
+            .create();
+        
+        let result = client.complete_unstake(Chain::Testnet).await;
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_claim_rewards() {
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/exchange/claimRewards")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("{\"status\":\"success\"}")
+            .create();
+        
+        let result = client.claim_rewards(Chain::Testnet).await;
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_stake_error_response() {
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/exchange/stake")
+            .with_status(400)
+            .with_header("content-type", "application/json")
+            .with_body("{\"error\":\"Invalid amount\"}")
+            .create();
+        
+        let result = client.stake(U256::from(0), Chain::Testnet).await;
+        assert!(result.is_err());
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_stake_request_validation() {
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/exchange/stake")
+            .match_body(mockito::Matcher::JsonString(r#"{"signatureChainId":"421614","hyperliquidChain":"arbitrum_testnet","amount":"1000000000000000000","time":"[0-9]+"}"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("{\"status\":\"success\"}")
+            .create();
+        
+        let result = client.stake(U256::from(1000000000000000000u64), Chain::Testnet).await;
+        assert!(result.is_ok());
+        mock.assert();
     }
 }

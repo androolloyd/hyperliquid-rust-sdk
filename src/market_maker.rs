@@ -1,12 +1,11 @@
 use alloy_primitives::Address;
 use log::{error, info};
 use tokio::sync::mpsc::unbounded_channel;
-use serde::Deserialize;
 
 use crate::{
     bps_diff, truncate_float, BaseUrl, ClientCancelRequest, ClientLimit, ClientOrder,
     ClientOrderRequest, ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, InfoClient,
-    Message, Subscription, UserData, EPSILON, Position, LocalWallet,
+    Message, Subscription, ws::UserData, EPSILON, info::sub_structs::Position, LocalWallet,
 };
 
 #[derive(Debug, Clone)]
@@ -64,7 +63,7 @@ impl MarketMaker {
     pub async fn new(input: MarketMakerInput) -> MarketMaker {
         let user_address = input.wallet.address();
 
-        let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
+        let info_client = InfoClient::new(BaseUrl::Testnet.get_url());
         let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
         MarketMaker {
@@ -226,10 +225,10 @@ impl MarketMaker {
                         if !order.statuses.is_empty() {
                             match order.statuses[0].clone() {
                                 ExchangeDataStatus::Filled(order) => {
-                                    return (amount, order.oid);
+                                    return (amount, order.order.oid);
                                 }
                                 ExchangeDataStatus::Resting(order) => {
-                                    return (amount, order.oid);
+                                    return (amount, order.order.oid);
                                 }
                                 ExchangeDataStatus::Error(e) => {
                                     error!("Error with placing order: {e}")

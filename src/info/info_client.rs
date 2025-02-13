@@ -4,17 +4,18 @@ use crate::{
             CandlesSnapshotResponse, L2SnapshotResponse, OpenOrdersResponse,
             OrderStatusResponse, RecentTradesResponse, UserFillsResponse, UserStateResponse,
             UserFeesResponse, UserStatesResponse, UserTokenBalancesResponse, SpotMetaAndAssetContextsResponse,
-            ReferralResponse, MetaResponse, SpotMetaResponse,
+            ReferralResponse, MetaResponse, SpotMetaResponse, StakingInfoResponse, UserStakingInfoResponse,
+            StakingRewardsInfoResponse,
         },
-        types::{UserFee, UserTokenBalance, FundingRate, SpotMetaAndAssetContexts, SpotMetaAsset, AssetContext, Candle, Fill, Trade},
-        sub_structs::{UserState, MarginSummary, OrderInfo},
+        types::{UserFee, UserTokenBalance, FundingRate, SpotMetaAndAssetContexts, Candle, Fill, Trade, StakingInfo, UserStakingInfo, StakingRewardsInfo},
+        sub_structs::{UserState, OrderInfo},
     },
     meta::{Meta, SpotMeta},
-    prelude::*,
-    req::HttpClient,
-    ws::{Subscription, WsManager},
-    BaseUrl, Message,
     errors::{HyperliquidError, Result},
+    BaseUrl,
+    ws::{Subscription, WsManager},
+    Message,
+    req::HttpClient,
 };
 
 use alloy_primitives::Address;
@@ -93,40 +94,34 @@ pub(crate) enum InfoRequest {
     HistoricalOrders {
         user: Address,
     },
+    StakingInfo,
+    UserStakingInfo {
+        user: Address,
+    },
+    StakingRewardsInfo,
 }
 
 #[derive(Debug)]
 pub struct InfoClient {
-    pub http_client: HttpClient,
+    pub(crate) http_client: HttpClient,
     pub(crate) ws_manager: Option<WsManager>,
     reconnect: bool,
 }
 
 impl InfoClient {
-    pub async fn new(client: Option<Client>, base_url: Option<BaseUrl>) -> Result<InfoClient> {
-        Self::new_internal(client, base_url, false).await
-    }
-
-    pub async fn with_reconnect(
-        client: Option<Client>,
-        base_url: Option<BaseUrl>,
-    ) -> Result<InfoClient> {
-        Self::new_internal(client, base_url, true).await
-    }
-
-    async fn new_internal(
-        client: Option<Client>,
-        base_url: Option<BaseUrl>,
-        reconnect: bool,
-    ) -> Result<InfoClient> {
-        let client = client.unwrap_or_default();
-        let base_url = base_url.unwrap_or(BaseUrl::Mainnet).get_url();
-
-        Ok(InfoClient {
-            http_client: HttpClient { client, base_url },
+    pub fn new(url: String) -> Self {
+        Self {
+            http_client: HttpClient::new(url),
             ws_manager: None,
-            reconnect,
-        })
+            reconnect: false,
+        }
+    }
+
+    pub async fn new_with_ws(url: String) -> Result<Self> {
+        let mut client = Self::new(url.clone());
+        client.ws_manager = Some(WsManager::new(url, true).await?);
+        client.reconnect = true;
+        Ok(client)
     }
 
     pub async fn subscribe(
@@ -211,16 +206,14 @@ impl InfoClient {
         Ok(response.data)
     }
 
-    pub async fn meta(&self) -> Result<Meta> {
-        let input = InfoRequest::Meta;
-        let response: MetaResponse = self.send_info_request(input).await?;
-        Ok(response.data)
+    pub async fn get_meta(&self) -> Result<Meta> {
+        let response: MetaResponse = self.send_info_request(InfoRequest::Meta).await?;
+        Ok(response.meta)
     }
 
-    pub async fn spot_meta(&self) -> Result<SpotMeta> {
-        let input = InfoRequest::SpotMeta;
-        let response: SpotMetaResponse = self.send_info_request(input).await?;
-        Ok(response.data)
+    pub async fn get_spot_meta(&self) -> Result<SpotMeta> {
+        let response: SpotMetaResponse = self.send_info_request(InfoRequest::SpotMeta).await?;
+        Ok(response.spot_meta)
     }
 
     pub async fn spot_meta_and_asset_contexts(&self) -> Result<SpotMetaAndAssetContexts> {
@@ -325,145 +318,324 @@ impl InfoClient {
         let input = InfoRequest::HistoricalOrders { user: address };
         self.send_info_request(input).await
     }
+
+    pub async fn get_staking_info(&self) -> Result<StakingInfo> {
+        let response: StakingInfoResponse = self.send_info_request(InfoRequest::StakingInfo).await?;
+        Ok(response.staking_info)
+    }
+
+    pub async fn get_user_staking_info(&self, address: Address) -> Result<UserStakingInfo> {
+        let input = InfoRequest::UserStakingInfo { user: address };
+        let response: UserStakingInfoResponse = self.send_info_request(input).await?;
+        Ok(response.user_staking_info)
+    }
+
+    pub async fn get_staking_rewards_info(&self) -> Result<StakingRewardsInfo> {
+        let response: StakingRewardsInfoResponse = self.send_info_request(InfoRequest::StakingRewardsInfo).await?;
+        Ok(response.staking_rewards_info)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::Address;
     use std::str::FromStr;
 
     const TEST_ADDRESS: &str = "0x0D1d9635D0640821d15e323ac8AdADfA9c111414";
 
-    async fn get_test_client() -> InfoClient {
-        InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap()
+    fn setup_mock_server() -> (InfoClient, mockito::ServerGuard) {
+        let mut server = mockito::Server::new();
+        let client = InfoClient::new(server.url().to_string());
+        (client, server)
     }
 
     #[tokio::test]
     async fn test_user_state() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":{"user":"0x0D1d9635D0640821d15e323ac8AdADfA9c111414","marginSummary":{"accountValue":"0","totalMarginUsed":"0","totalNtlPos":"0","totalRawUsd":"0","totalRawUsdCc":"0"},"positions":[]}}"#)
+            .create();
+
         let address = Address::from_str(TEST_ADDRESS).unwrap();
         let result = client.user_state(address).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_user_states() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":[{"user":"0x0D1d9635D0640821d15e323ac8AdADfA9c111414","marginSummary":{"accountValue":"0","totalMarginUsed":"0","totalNtlPos":"0","totalRawUsd":"0","totalRawUsdCc":"0"},"positions":[]}]}"#)
+            .create();
+
         let address = Address::from_str(TEST_ADDRESS).unwrap();
         let result = client.user_states(vec![address]).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_user_token_balances() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":[{"coin":"ETH","hold":"0","total":"0"}]}"#)
+            .create();
+
         let address = Address::from_str(TEST_ADDRESS).unwrap();
         let result = client.user_token_balances(address).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_user_fees() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":{"tier":0,"makerRate":"0","takerRate":"0","totalVolume":"0"}}"#)
+            .create();
+
         let address = Address::from_str(TEST_ADDRESS).unwrap();
         let result = client.user_fees(address).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_meta() {
-        let client = get_test_client().await;
-        let result = client.meta().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"meta":{"assets":{}}}"#)
+            .create();
+
+        let result = client.get_meta().await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_spot_meta() {
-        let client = get_test_client().await;
-        let result = client.spot_meta().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"spotMeta":{"assets":{}}}"#)
+            .create();
+
+        let result = client.get_spot_meta().await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_spot_meta_and_asset_contexts() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":{"meta":{"assets":{}},"contexts":[]}}"#)
+            .create();
+
         let result = client.spot_meta_and_asset_contexts().await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_all_mids() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":{}}"#)
+            .create();
+
         let result = client.all_mids().await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_user_fills() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":[]}"#)
+            .create();
+
         let address = Address::from_str(TEST_ADDRESS).unwrap();
         let result = client.user_fills(address).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_funding_history() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":[]}"#)
+            .create();
+
         let result = client.funding_history("ETH".to_string(), 1690393044548, Some(1690393044548 + 3600)).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_user_funding_history() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":[]}"#)
+            .create();
+
         let address = Address::from_str(TEST_ADDRESS).unwrap();
         let result = client.user_funding_history(address, 1690393044548, Some(1690393044548 + 3600)).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_recent_trades() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":[]}"#)
+            .create();
+
         let result = client.recent_trades("ETH".to_string()).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_l2_snapshot() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":{"levels":[]}}"#)
+            .create();
+
         let result = client.l2_snapshot("ETH".to_string()).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_candles_snapshot() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":[]}"#)
+            .create();
+
         let result = client.candles_snapshot("ETH".to_string(), "1m".to_string(), 1690393044548, 1690393044548 + 3600).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_query_order_by_oid() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":{"order":{"coin":"ETH","side":"B","limitPx":"1000","sz":"1","oid":1,"timestamp":1690393044548,"triggerCondition":"","isTrigger":false,"triggerPx":"0","isPositionTpsl":false,"reduceOnly":false,"orderType":"L","origSz":"1","tif":"Gtc","cloid":null},"status":"open","statusTimestamp":1690393044548}}"#)
+            .create();
+
         let address = Address::from_str(TEST_ADDRESS).unwrap();
         let result = client.query_order_by_oid(address, 1).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_query_referral_state() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":{"stage":"none","data":{"required":"0"}}}"#)
+            .create();
+
         let address = Address::from_str(TEST_ADDRESS).unwrap();
         let result = client.query_referral_state(address).await;
         assert!(result.is_ok());
+        mock.assert();
     }
 
     #[tokio::test]
     async fn test_historical_orders() {
-        let client = get_test_client().await;
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"data":[]}"#)
+            .create();
+
         let address = Address::from_str(TEST_ADDRESS).unwrap();
         let result = client.historical_orders(address).await;
         assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_staking_info() {
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"stakingInfo":{"totalStaked":"0","totalRewards":"0","apr":"0","minStake":"0","maxStake":"0","cooldownPeriod":0}}"#)
+            .create();
+
+        let result = client.get_staking_info().await;
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_user_staking_info() {
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"userStakingInfo":{"stakedAmount":"0","pendingRewards":"0","cooldownEnd":null,"unstakeAmount":null}}"#)
+            .create();
+
+        let address = Address::from_str(TEST_ADDRESS).unwrap();
+        let result = client.get_user_staking_info(address).await;
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_staking_rewards_info() {
+        let (client, mut server) = setup_mock_server();
+        let mock = server.mock("POST", "/info")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"stakingRewardsInfo":{"totalDistributed":"0","currentEpoch":0,"rewardsPerEpoch":"0","epochDuration":0}}"#)
+            .create();
+
+        let result = client.get_staking_rewards_info().await;
+        assert!(result.is_ok());
+        mock.assert();
     }
 }

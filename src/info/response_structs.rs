@@ -1,11 +1,9 @@
 use crate::{
     info::{
-        AssetPosition, Level, MarginSummary, 
-        sub_structs::UserState,
-        types::{UserFee, SpotMetaAndAssetContexts, UserTokenBalance, Candle, Fill, Trade, FundingRate},
+        sub_structs::{AssetPosition, Level, MarginSummary, DailyUserVlm, Delta, FeeSchedule, OrderInfo, Referrer, ReferrerState, UserState},
+        types::{UserFee, SpotMetaAndAssetContexts, UserTokenBalance, Candle, Fill, Trade, FundingRate, StakingInfo, UserStakingInfo, StakingRewardsInfo},
     },
-    meta::{SpotMeta, SpotAssetContext, Meta},
-    DailyUserVlm, Delta, FeeSchedule, OrderInfo, Referrer, ReferrerState,
+    meta::{SpotMeta, Meta},
 };
 use serde::Deserialize;
 
@@ -69,7 +67,7 @@ pub struct OrderStatusResponse {
     pub data: OrderInfo,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ReferralResponse {
     pub data: ReferrerState,
 }
@@ -98,12 +96,32 @@ pub struct RecentTradesResponse {
     pub data: Vec<Trade>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct MetaResponse {
-    pub data: Meta,
+    pub(crate) meta: Meta,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct SpotMetaResponse {
-    pub data: SpotMeta,
+    pub(crate) spot_meta: SpotMeta,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StakingInfoResponse {
+    pub(crate) staking_info: StakingInfo,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UserStakingInfoResponse {
+    pub(crate) user_staking_info: UserStakingInfo,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StakingRewardsInfoResponse {
+    pub(crate) staking_rewards_info: StakingRewardsInfo,
 }

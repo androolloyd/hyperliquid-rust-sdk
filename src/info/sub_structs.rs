@@ -51,7 +51,6 @@ pub struct MarginSummary {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct Level {
     pub n: u64,
     pub px: String,
@@ -59,7 +58,6 @@ pub struct Level {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct Delta {
     #[serde(rename = "type")]
     pub type_string: String,
@@ -70,7 +68,6 @@ pub struct Delta {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct DailyUserVlm {
     pub date: String,
     pub exchange: String,
@@ -79,7 +76,6 @@ pub struct DailyUserVlm {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct FeeSchedule {
     pub add: String,
     pub cross: String,
@@ -94,14 +90,12 @@ pub struct Tiers {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct Mm {
     pub add: String,
     pub maker_fraction_cutoff: String,
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct Vip {
     pub add: String,
     pub cross: String,
@@ -109,7 +103,7 @@ pub struct Vip {
 }
 
 #[derive(Deserialize, Debug)]
-pub(crate) struct UserTokenBalance {
+pub struct UserTokenBalance {
     pub coin: String,
     pub hold: String,
     pub total: String,
@@ -144,20 +138,19 @@ pub struct BasicOrderInfo {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct Referrer {
     pub referrer: Address,
     pub code: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferrerState {
     pub stage: String,
     pub data: ReferrerData,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferrerData {
     pub required: String,

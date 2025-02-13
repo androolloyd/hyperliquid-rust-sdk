@@ -1,4 +1,5 @@
 use thiserror::Error;
+use crate::ws::WsError;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -199,6 +200,17 @@ impl From<Error> for HyperliquidError {
             Error::Websocket(msg) => HyperliquidError::WebsocketError(msg),
             Error::SignatureFailure(msg) => HyperliquidError::SignatureError(msg),
             Error::AlloySignerError(msg) => HyperliquidError::SignatureError(msg),
+        }
+    }
+}
+
+impl From<WsError> for HyperliquidError {
+    fn from(err: WsError) -> Self {
+        match err {
+            WsError::WebSocket(e) => HyperliquidError::WebsocketError(e.to_string()),
+            WsError::Connection(e) => HyperliquidError::WebsocketError(e),
+            WsError::Subscription(e) => HyperliquidError::WebsocketError(e),
+            WsError::JsonParse(e) => HyperliquidError::SerializationError(e),
         }
     }
 }

@@ -2,7 +2,6 @@ use alloy_primitives::{Address, U256};
 use alloy_sol_types::sol;
 use serde::{Deserialize, Serialize};
 
-use crate::Error;
 use super::{
     cancel::{CancelRequest, CancelRequestCloid}, 
     modify::ModifyRequest, 
@@ -60,6 +59,36 @@ pub(crate) mod types {
             bool toPerp;
             uint256 time;
         }
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct Stake {
+            uint256 signatureChainId;
+            string hyperliquidChain;
+            uint256 amount;
+            uint256 time;
+        }
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct StartUnstake {
+            uint256 signatureChainId;
+            string hyperliquidChain;
+            uint256 amount;
+            uint256 time;
+        }
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct CompleteUnstake {
+            uint256 signatureChainId;
+            string hyperliquidChain;
+            uint256 time;
+        }
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct ClaimRewards {
+            uint256 signatureChainId;
+            string hyperliquidChain;
+            uint256 time;
+        }
     }
 }
 
@@ -107,13 +136,6 @@ pub struct BulkModify {
 pub struct BulkCancelCloid {
     pub cancels: Vec<CancelRequestCloid>,
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct SpotUser {
-    pub class_transfer: ClassTransfer,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultTransfer {
@@ -135,4 +157,22 @@ pub struct ApproveBuilderFee {
     pub builder: String,
     pub nonce: u64,
     pub signature_chain_id: U256,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum Actions {
+    UpdateLeverage(UpdateLeverage),
+    UpdateIsolatedMargin(UpdateIsolatedMargin),
+    BulkOrder(BulkOrder),
+    BulkCancel(BulkCancel),
+    BulkModify(BulkModify),
+    BulkCancelCloid(BulkCancelCloid),
+    VaultTransfer(VaultTransfer),
+    SetReferrer(SetReferrer),
+    ApproveBuilderFee(ApproveBuilderFee),
+    Stake(Stake),
+    StartUnstake(StartUnstake),
+    CompleteUnstake(CompleteUnstake),
+    ClaimRewards(ClaimRewards),
 }

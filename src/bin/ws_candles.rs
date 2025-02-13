@@ -1,6 +1,6 @@
 use log::info;
 
-use hyperliquid_rust_sdk::{BaseUrl, InfoClient, Message, Subscription};
+use hyperliquid_rust_sdk::{info::InfoClient, helpers::BaseUrl, Message, Subscription};
 use tokio::{
     spawn,
     sync::mpsc::unbounded_channel,
@@ -10,7 +10,7 @@ use tokio::{
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    let mut info_client = InfoClient::new(None, Some(BaseUrl::Mainnet)).await.unwrap();
+    let mut info_client = InfoClient::new_with_ws(BaseUrl::Testnet.get_ws_url()).await.unwrap();
 
     let (sender, mut receiver) = unbounded_channel();
     let subscription_id = info_client

@@ -1,4 +1,4 @@
-use crate::{consts::*, prelude::*, Error};
+use crate::{constants::*, prelude::*, Error};
 use chrono::prelude::Utc;
 use lazy_static::lazy_static;
 use log::info;
@@ -59,36 +59,49 @@ pub(crate) fn generate_random_key() -> Result<[u8; 32]> {
     Ok(arr)
 }
 
-pub fn truncate_float(float: f64, decimals: u32, round_up: bool) -> f64 {
-    let pow10 = 10i64.pow(decimals) as f64;
-    let mut float = (float * pow10) as u64;
-    if round_up {
-        float += 1;
-    }
-    float as f64 / pow10
-}
-
-pub fn bps_diff(x: f64, y: f64) -> u16 {
-    if x.abs() < EPSILON {
-        INF_BPS
+pub fn truncate_float(value: f64, decimals: u32, round_down: bool) -> f64 {
+    let multiplier = 10f64.powi(decimals as i32);
+    if round_down {
+        (value * multiplier).floor() / multiplier
     } else {
-        (((y - x).abs() / (x)) * 10_000.0) as u16
+        (value * multiplier).ceil() / multiplier
     }
 }
 
-#[derive(Copy, Clone)]
+pub fn bps_diff(px1: f64, px2: f64) -> u16 {
+    if px2 < EPSILON {
+        return INF_BPS;
+    }
+    ((px1 - px2).abs() / px2 * 10000.0) as u16
+}
+
+#[derive(Debug, Clone)]
 pub enum BaseUrl {
-    Localhost,
-    Testnet,
     Mainnet,
+    Testnet,
+    Local,
+}
+
+impl Default for BaseUrl {
+    fn default() -> Self {
+        BaseUrl::Mainnet
+    }
 }
 
 impl BaseUrl {
     pub fn get_url(&self) -> String {
         match self {
-            BaseUrl::Localhost => LOCAL_API_URL.to_string(),
             BaseUrl::Mainnet => MAINNET_API_URL.to_string(),
             BaseUrl::Testnet => TESTNET_API_URL.to_string(),
+            BaseUrl::Local => LOCAL_API_URL.to_string(),
+        }
+    }
+
+    pub fn get_ws_url(&self) -> String {
+        match self {
+            BaseUrl::Mainnet => MAINNET_WS_URL.to_string(),
+            BaseUrl::Testnet => TESTNET_WS_URL.to_string(),
+            BaseUrl::Local => format!("ws{}/ws", &LOCAL_API_URL[4..]),
         }
     }
 }
