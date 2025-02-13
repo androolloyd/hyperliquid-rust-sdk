@@ -69,7 +69,7 @@ pub(crate) async fn sign_l1_action(hash: B256, wallet: &PrivateKeySigner) -> Res
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{UsdSend, Withdraw3};
+    use crate::exchange::actions::types::{UsdSend, Withdraw3};
     use std::str::FromStr;
 
     fn get_wallet() -> Result<PrivateKeySigner> {

@@ -45,14 +45,15 @@ impl SpotMeta {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
-#[serde(untagged)]
+#[derive(Debug, Clone, Deserialize)]
 pub enum SpotMetaAndAssetCtxs {
+    #[serde(rename = "meta")]
     SpotMeta(SpotMeta),
+    #[serde(rename = "context")]
     Context(Vec<SpotAssetContext>),
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotAssetContext {
     pub day_ntl_vlm: String,

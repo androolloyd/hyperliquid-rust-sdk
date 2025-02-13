@@ -14,6 +14,7 @@ async fn main() {
     // Key was randomly generated for testing and shouldn't be used with any real funds
     let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
     let wallet = priv_key.parse::<PrivateKeySigner>().unwrap();
+    let user = wallet.address();
 
     let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
@@ -47,7 +48,7 @@ async fn main() {
     sleep(Duration::from_secs(10));
 
     let cancel = ClientCancelRequest {
-        asset: "HFUN/USDC".to_string(),
+        asset: "XYZTWO/USDC".to_string(),
         oid,
     };
 

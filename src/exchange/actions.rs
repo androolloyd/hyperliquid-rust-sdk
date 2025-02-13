@@ -1,7 +1,6 @@
 use alloy_primitives::{Address, U256};
-use alloy_sol_types::{sol, SolStruct, SolType};
+use alloy_sol_types::sol;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 
 use crate::Error;
 use super::{
@@ -13,7 +12,7 @@ use super::{
 
 pub(crate) const HYPERLIQUID_EIP_PREFIX: &str = "HyperliquidTransaction:";
 
-pub mod types {
+pub(crate) mod types {
     use super::*;
     
     sol! {
@@ -64,7 +63,7 @@ pub mod types {
     }
 }
 
-pub use types::*;
+pub(crate) use types::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -76,7 +75,7 @@ pub struct UpdateLeverage {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct UpdateIsolatedMargin {
+pub(crate) struct UpdateIsolatedMargin {
     pub asset: u32,
     pub is_buy: bool,
     pub ntli: i64,

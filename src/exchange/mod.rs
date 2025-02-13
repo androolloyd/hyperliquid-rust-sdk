@@ -1,4 +1,4 @@
-mod actions;
+pub mod actions;
 mod builder;
 mod cancel;
 mod exchange_client;
@@ -6,7 +6,10 @@ mod exchange_responses;
 mod modify;
 mod order;
 
-pub use actions::*;
+pub use actions::{
+    ApproveBuilderFee, BulkCancel, BulkCancelCloid, BulkModify, BulkOrder, SetReferrer, SpotUser,
+    UpdateLeverage, VaultTransfer,
+};
 pub use builder::*;
 pub use cancel::{ClientCancelRequest, ClientCancelRequestCloid};
 pub use exchange_client::*;

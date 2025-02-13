@@ -109,7 +109,7 @@ pub struct Vip {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct UserTokenBalance {
+pub(crate) struct UserTokenBalance {
     pub coin: String,
     pub hold: String,
     pub total: String,

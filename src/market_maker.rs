@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, U256};
+use alloy_primitives::Address;
 use log::{error, info};
 use tokio::sync::mpsc::unbounded_channel;
 use serde::Deserialize;
